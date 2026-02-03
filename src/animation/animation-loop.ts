@@ -1,48 +1,29 @@
-import type { Animation } from "./animation";
+import type { Animation, AnimationFrame, AnimationValue } from "./animation";
 import { type AnimationStopReason } from "./animation-stop-reason";
 
-export interface AnimationProgress {
-  /** The animation of which the state is reflected. */
+export interface AnimationProgress extends AnimationValue, AnimationFrame {
+  /** The animation. */
   animation: Animation;
-  /** The time when the animation started. */
-  startTime: number;
-  /** The current time of the animation. */
-  time: number;
-  /** The elapsed time since start of the animation. */
-  elapsedTime: number;
-  /** The current frame of the animation. */
-  frame: {
-    /** The zero-based frame count. */
-    count: number;
-    /** Whether this is the first frame of the animation. */
-    first: boolean;
-    /** Whether this is the last frame of the animation. */
-    last: boolean;
-  };
-  /** The current position of the animation. */
-  position: number;
-  /** The current velocity of the animation. */
-  velocity: number;
 }
 
 export interface AnimationLoopOptions {
   /** Progress information which is used to seamlessly connect this animation loop to a previous animation loop. */
   progress?: AnimationProgress | null;
   /** Callback invoked when the loop starts. */
-  onStart?: (startState: AnimationProgress) => void;
+  onStart?: (startProgress: AnimationProgress) => void;
   /** Callback invoked whenever a frame is ready. */
-  onFrame?: (frameState: AnimationProgress) => void;
+  onFrame?: (frameProgress: AnimationProgress) => void;
   /** Callback invoked when the loop stops. */
   onStop?: (
-    stopState: AnimationProgress,
+    stopProgress: AnimationProgress,
     stopReason: AnimationStopReason,
   ) => void;
 }
 
 interface AnimationLoopState {
   abortController: AbortController;
-  startState: AnimationProgress | null;
-  latestState: AnimationProgress | null;
+  firstProgress: AnimationProgress | null;
+  latestProgress: AnimationProgress | null;
   rafId: number | null;
 }
 
@@ -66,19 +47,19 @@ export class AnimationLoop {
     const abortController = new AbortController();
     const loopState: AnimationLoopState = (this._loopState = {
       abortController,
-      startState: null,
-      latestState: null,
+      firstProgress: null,
+      latestProgress: null,
       rafId: null,
     });
 
     abortController.signal.addEventListener("abort", () => {
       const { reason } = abortController.signal;
-      const { rafId, latestState } = loopState;
+      const { rafId, latestProgress } = loopState;
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
-      if (latestState) {
-        this._options.onStop?.(latestState, reason);
+      if (latestProgress) {
+        this._options.onStop?.(latestProgress, reason);
       }
     });
 
@@ -101,38 +82,32 @@ export class AnimationLoop {
       return;
     }
 
-    const { latestState, startState } = this._loopState;
+    const { firstProgress, latestProgress } = this._loopState;
     const animation = this.animation;
-    const elapsedTime = Math.max(
-      0,
-      time - (latestState?.startTime || this._options.progress?.time || time),
-    );
-    const firstFrame = !startState;
-    const { position, velocity, completed } = animation.value(elapsedTime);
-
-    const animationState = {
+    const startTime =
+      latestProgress?.startTime || this._options.progress?.time || time;
+    const animationFrame = {
+      startTime,
+      time: Math.max(startTime, time),
+      elapsedTime: Math.max(0, time - startTime),
+      frame: latestProgress ? latestProgress.frame + 1 : 0,
+    };
+    const animationValue = animation.value(animationFrame);
+    const animationProgress = {
       animation,
-      startTime: latestState ? latestState.startTime : time,
-      time,
-      elapsedTime,
-      frame: {
-        count: latestState ? latestState.frame.count + 1 : 0,
-        first: firstFrame,
-        last: completed,
-      },
-      position,
-      velocity,
+      ...animationValue,
+      ...animationFrame,
     };
 
-    if (firstFrame) {
-      this._loopState.startState = animationState;
-      this._options.onStart?.(animationState);
+    if (!firstProgress) {
+      this._loopState.firstProgress = animationProgress;
+      this._options.onStart?.(animationProgress);
     }
 
-    this._loopState.latestState = animationState;
-    this._options.onFrame?.(animationState);
+    this._loopState.latestProgress = animationProgress;
+    this._options.onFrame?.(animationProgress);
 
-    if (completed) {
+    if (animationValue.completed) {
       this.stop({ type: "completed" });
       return;
     }

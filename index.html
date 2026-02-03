@@ -7,11 +7,51 @@
     <title>gravitas</title>
   </head>
   <body>
-    <div id="dot"></div>
-    <div>
-      <button id="btn">start</button>
-    </div>
+    <div class="container">
+      <h1>Animation Library Preview</h1>
 
+      <div class="instructions">
+        <strong>Usage:</strong> Click to make single changes, or hold and drag
+        to make continuous changes
+      </div>
+
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-line gray-line"></div>
+          <span>Instant Change</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-line red-line"></div>
+          <span>Animated Change</span>
+        </div>
+      </div>
+
+      <div class="graph-container" id="graph">
+        <canvas id="canvas"></canvas>
+        <div class="center-line"></div>
+        <div class="axis-label x-axis-label">Time</div>
+        <div class="axis-label y-axis-label">Value</div>
+      </div>
+
+      <div class="controls">
+        <div class="control-group">
+          <label
+            >Timeframe:
+            <span class="timeframe-value" id="timeframeValue">10s</span></label
+          >
+          <input
+            type="range"
+            id="timeframe"
+            class="timeframe-slider"
+            min="2"
+            max="30"
+            value="10"
+            step="1"
+          />
+        </div>
+        <button id="clearGraph">Clear Graph</button>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

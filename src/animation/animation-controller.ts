@@ -24,10 +24,12 @@ export interface AnimateResult {
   completed: boolean;
   /** The reason why the animation stopped. */
   stopReason: AnimationStopReason;
+  /** The animation progress of the last frame. */
+  stopProgress: AnimationProgress;
 }
 
 export class AnimationController {
-  private _animationState: AnimationProgress | null = null;
+  private _animationProgress: AnimationProgress | null = null;
   private _animationLoop: AnimationLoop | null = null;
 
   get animating() {
@@ -45,7 +47,7 @@ export class AnimationController {
   ): Promise<AnimateResult> {
     const { animation, options } =
       typeof parameters === "function"
-        ? parameters(this._animationState)
+        ? parameters(this._animationProgress)
         : parameters;
 
     const { promise, resolve } = createPromiseWithResolvers<AnimateResult>();
@@ -53,18 +55,18 @@ export class AnimationController {
     this.stop({ type: "succeeded", promise });
     this._animationLoop = new AnimationLoop(animation, {
       ...options,
-      onFrame: (newFrameState) => {
-        options?.onFrame?.(newFrameState);
+      onFrame: (frameProgress) => {
+        options?.onFrame?.(frameProgress);
 
-        this._animationState = newFrameState;
+        this._animationProgress = frameProgress;
       },
-      onStop: (newStopState, stopReason) => {
-        options?.onStop?.(newStopState, stopReason);
+      onStop: (stopProgress, stopReason) => {
+        options?.onStop?.(stopProgress, stopReason);
 
-        const completed = newStopState.frame.last;
-        this._animationState = completed ? null : newStopState;
+        const { completed } = stopProgress;
+        this._animationProgress = completed ? null : stopProgress;
 
-        resolve({ animation, completed, stopReason });
+        resolve({ animation, completed, stopReason, stopProgress });
       },
     });
 
