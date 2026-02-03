@@ -35,7 +35,7 @@ window.addEventListener("load", () => {
     ],
     onLineValue(lineId: string) {
       if (lineId === "motion") {
-        return s.get();
+        // return s.get();
       }
       if (lineId === "me") {
         return me;
